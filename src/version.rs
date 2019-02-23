@@ -8,8 +8,12 @@ use std::process::{Command, Output};
 ///
 /// Returns error in case of unsuccessful exit.
 pub fn detect_version(cmd: &str) -> Result<Output, Error> {
+    detect_version_with_arg(cmd, "--version")
+}
+
+pub fn detect_version_with_arg(cmd: &str, arg: &str) -> Result<Output, Error> {
     Command::new(cmd)
-        .arg("--version")
+        .arg(arg)
         .output()
         .or_else(|cause| Err(Error::version_detect_io(cmd, cause)))
         .and_then(|output| {
@@ -91,8 +95,8 @@ mod test {
     #[cfg(unix)]
     #[test]
     fn detect_unsupported_cmd() {
-        let false_version_err = detect_version("/bin/false")
-            .expect_err("Expected /bin/false to exit unsuccessfully on any unix, making it unsupported by our method.");
+        let false_version_err = detect_version("false")
+            .expect_err("Expected false to exit unsuccessfully on any unix, making it unsupported by our method.");
 
         match false_version_err {
             Error::UnsuccessfulExit { .. } => (),

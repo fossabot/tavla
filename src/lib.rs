@@ -44,9 +44,11 @@
 extern crate failure;
 
 mod any;
+mod child;
 mod espeak;
 mod factory;
 mod prelude;
+mod say;
 mod speech;
 mod token;
 mod version;
