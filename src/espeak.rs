@@ -3,8 +3,8 @@
 //! On Windows systems it would be rather exotic but
 //! might be available.
 
-pub use err::Error;
 pub use crate::child::Speech;
+pub use err::Error;
 
 use crate::token::{PauseDuration::*, Token, Tokenizer};
 use crate::version::detect_version;
@@ -122,7 +122,7 @@ mod err {
             #[cause]
             cause: io::Error,
             backtrace: Backtrace,
-        }
+        },
     }
 
     impl Error {

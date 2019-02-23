@@ -1,7 +1,7 @@
 use crate::any::AnyVoice;
 use crate::espeak::{Error as EspeakError, Espeak};
 use crate::say::{Error as SayError, Say};
-use failure::{Error, bail};
+use failure::{bail, Error};
 
 /// Picks any available voice and wraps it in
 /// [`AnyVoice`](enum.AnyVoice.html).

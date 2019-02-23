@@ -15,16 +15,6 @@ pub enum PauseDuration {
     Seconds(u32),
 }
 
-impl PauseDuration {
-    fn lengthen(&self) -> Self {
-        match self {
-            PauseDuration::Sentence => PauseDuration::Paragraph,
-            PauseDuration::Paragraph => PauseDuration::Seconds(1),
-            PauseDuration::Seconds(secs) => PauseDuration::Seconds(2 * secs),
-        }
-    }
-}
-
 pub struct Tokenizer<'a> {
     rest: &'a str,
 }
@@ -35,64 +25,61 @@ impl<'a> Tokenizer<'a> {
     }
 }
 
+impl<'a> Tokenizer<'a> {}
+
 impl<'a> Iterator for Tokenizer<'a> {
     type Item = Token<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let rest = self.rest;
-        let mut chars = self.rest.char_indices();
+        let mut chars = rest.char_indices();
+        let (token, consumed_until) = match chars.next()? {
+            (_, '_') => {
+                // Pauses and emphasis itself stops emphasis part
+                let mut chars = chars.skip_while(|(_, next)| *next != '.' && *next != '_');
+                let (terminator_char_idx, terminator_char) =
+                    chars.next().unwrap_or((rest.len(), '\0'));
+                let after_terminator_char_idx =
+                    chars.next().map(|(idx, _)| idx).unwrap_or(rest.len());
 
-        let (first_consumed, first_char) = chars.next()?;
-        let mut token = match first_char {
-            '_' => Token::Emphasised(&rest[1..1]),
-            '.' => Token::Pause(PauseDuration::Sentence),
-            _ => Token::Normal(&rest[0..1]),
-        };
+                // Resume after closing emphasis, if any
+                let consumed_until = match terminator_char {
+                    '_' => after_terminator_char_idx,
+                    _ => terminator_char_idx,
+                };
 
-        let mut last_consumed = first_consumed;
-        let mut retain_last = false;
-        while let Some((idx, character)) = chars.next() {
-            last_consumed = idx;
-            token = match character {
-                '_' => {
-                    match token {
-                        Token::Emphasised(_) => break, // Swallow the underscore
-                        _ => {
-                            // Handle the underscore on next call and return pause or normal
-                            retain_last = true;
-                            break;
-                        }
-                    }
-                }
-                '.' => {
-                    match token {
-                        // Extend length of pause by doubling it
-                        Token::Pause(duration) => Token::Pause(duration.lengthen()),
-                        // Handle pause on next call
-                        _ => {
-                            retain_last = true;
-                            break;
-                        }
-                    }
-                }
-                _ => match token {
-                    Token::Emphasised(_) => Token::Emphasised(&rest[1..=idx]),
-                    Token::Normal(_) => Token::Normal(&rest[0..=idx]),
-                    Token::Pause(_) => {
-                        retain_last = true;
-                        break;
-                    }
-                },
+                (
+                    Token::Emphasised(&rest[1..terminator_char_idx]),
+                    consumed_until,
+                )
             }
-        }
+            (pause_start, '.') => {
+                let pause_end = chars
+                    .skip_while(|(_, next)| *next == '.')
+                    .next()
+                    .map(|(idx, _)| idx)
+                    .unwrap_or(rest.len());
 
-        let consumed_until = if retain_last {
-            last_consumed
-        } else {
-            chars.next().map(|(idx, _)| idx).unwrap_or(self.rest.len())
+                let duration = match pause_end - pause_start {
+                    1 => PauseDuration::Sentence,
+                    2 => PauseDuration::Paragraph,
+                    n => PauseDuration::Seconds((n - 2) as u32),
+                };
+
+                (Token::Pause(duration), pause_end)
+            }
+            (normal_start, _) => {
+                let normal_end = chars
+                    .skip_while(|(_, next)| *next != '.' && *next != '_')
+                    .next()
+                    .map(|(idx, _)| idx)
+                    .unwrap_or(rest.len());
+
+                (Token::Normal(&rest[normal_start..normal_end]), normal_end)
+            }
         };
-        self.rest = &self.rest[consumed_until..];
 
+        self.rest = &rest[consumed_until..];
         Some(token)
     }
 }
@@ -118,6 +105,30 @@ mod test {
         let mut tokenizer = Tokenizer::new("holodrio _there_");
         assert_eq!(tokenizer.next(), Some(Token::Normal("holodrio ")));
         assert_eq!(tokenizer.next(), Some(Token::Emphasised("there")));
+        assert_eq!(tokenizer.next(), None);
+        assert!(tokenizer.next().is_none());
+        assert!(tokenizer.next().is_none());
+    }
+
+    #[test]
+    fn emphasised_unclosed_string() {
+        let mut tokenizer = Tokenizer::new("holodrio _there");
+        assert_eq!(tokenizer.next(), Some(Token::Normal("holodrio ")));
+        assert_eq!(tokenizer.next(), Some(Token::Emphasised("there")));
+        assert_eq!(tokenizer.next(), None);
+        assert!(tokenizer.next().is_none());
+        assert!(tokenizer.next().is_none());
+    }
+
+    #[test]
+    fn emphasised_unclosed_string_with_pause_after() {
+        let mut tokenizer = Tokenizer::new("holodrio _there.");
+        assert_eq!(tokenizer.next(), Some(Token::Normal("holodrio ")));
+        assert_eq!(tokenizer.next(), Some(Token::Emphasised("there")));
+        assert_eq!(
+            tokenizer.next(),
+            Some(Token::Pause(PauseDuration::Sentence))
+        );
         assert_eq!(tokenizer.next(), None);
         assert!(tokenizer.next().is_none());
         assert!(tokenizer.next().is_none());

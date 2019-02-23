@@ -1,13 +1,13 @@
 //! Speech synthesis with the `say` command line
 //! tool available on mac systems.
 
-pub use err::Error;
 pub use crate::child::Speech;
+pub use err::Error;
 
-use std::io::Write;
-use std::process::{Command, Child, Stdio};
+use crate::token::{PauseDuration::*, Token, Tokenizer};
 use crate::version::detect_version_with_arg;
-use crate::token::{Tokenizer, Token, PauseDuration::*};
+use std::io::Write;
+use std::process::{Child, Command, Stdio};
 
 #[derive(Debug)]
 pub struct Say;
@@ -38,20 +38,23 @@ impl crate::Voice for Say {
     /// Speaks the given sentence. Emphasized words can be wrapped in underscores.
     fn speak<S>(&self, sentence: S) -> Result<Self::Speech, Self::Error>
     where
-        S: AsRef<str>
-        {
-
+        S: AsRef<str>,
+    {
         let mut say = self.spawn()?;
         let pipe = say.stdin.as_mut().ok_or_else(Error::cannot_open_pipe)?;
 
         for token in Tokenizer::new(sentence.as_ref()) {
             match token {
                 Token::Normal(text) => write!(pipe, "{}", text).map_err(Error::cannot_write)?,
-                Token::Emphasised(text) => write!(pipe, "[[emph +]]{}[[emph -]]", text)
-                    .map_err(Error::cannot_write)?,
-                Token::Pause(Sentence) => write!(pipe, "[[slnc 350]]").map_err(Error::cannot_write)?,
-                Token::Pause(Paragraph) => write!(pipe, "[[slnc 700]]")
-                    .map_err(Error::cannot_write)?,
+                Token::Emphasised(text) => {
+                    write!(pipe, "[[emph +]]{}[[emph -]]", text).map_err(Error::cannot_write)?
+                }
+                Token::Pause(Sentence) => {
+                    write!(pipe, "[[slnc 350]]").map_err(Error::cannot_write)?
+                }
+                Token::Pause(Paragraph) => {
+                    write!(pipe, "[[slnc 700]]").map_err(Error::cannot_write)?
+                }
                 Token::Pause(Seconds(secs)) => {
                     write!(pipe, "[[slnc {}000]]", secs).map_err(Error::cannot_write)?
                 }
@@ -63,8 +66,8 @@ impl crate::Voice for Say {
 }
 
 mod err {
-    use failure::{Fail, Backtrace};
     use crate::version::Error as VersionDetectError;
+    use failure::{Backtrace, Fail};
     use std::io::Error as IoError;
 
     #[derive(Debug, Fail)]
@@ -74,16 +77,18 @@ mod err {
         SayNotInstalled(#[cause] VersionDetectError),
         #[fail(display = "say command could not be invoked: {}", cause)]
         CannotInvoke {
-            #[cause] cause: IoError,
-            backtrace: Backtrace
+            #[cause]
+            cause: IoError,
+            backtrace: Backtrace,
         },
         #[fail(display = "say command could not be written to: {}", cause)]
         CannotWrite {
-            #[cause] cause: IoError,
-            backtrace: Backtrace
+            #[cause]
+            cause: IoError,
+            backtrace: Backtrace,
         },
         #[fail(display = "cannot open pipe to say")]
-        CannotOpenPipe(Backtrace)
+        CannotOpenPipe(Backtrace),
     }
 
     impl Error {
@@ -94,14 +99,14 @@ mod err {
         pub fn cannot_invoke(cause: IoError) -> Self {
             Error::CannotInvoke {
                 cause,
-                backtrace: Backtrace::new()
+                backtrace: Backtrace::new(),
             }
         }
 
         pub fn cannot_write(cause: IoError) -> Self {
             Error::CannotWrite {
                 cause,
-                backtrace: Backtrace::new()
+                backtrace: Backtrace::new(),
             }
         }
 

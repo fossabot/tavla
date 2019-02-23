@@ -1,5 +1,5 @@
 extern crate tavla;
-use tavla::{say, Voice, Speech};
+use tavla::{say, Speech, Voice};
 
 #[test]
 fn speak_say() {
@@ -10,8 +10,7 @@ fn speak_say() {
         }
         // If it is, it must be invokable successfully
         Ok(say) => {
-            say
-                .speak("Hello with say.... And hello again after a long _pause_.")
+            say.speak("Hello with say.... And hello again after a long _pause_.")
                 .expect("say obtained, but failed to speak a phrase")
                 .await_done()
                 .expect("say obtained, but failed to speak a phrase until done");
