@@ -78,7 +78,7 @@ impl Voice for Espeak {
                     Token::Normal(text) => write!(pipe, "{}", text).map_err(Error::cannot_write)?,
                     Token::Emphasised(text) => write!(pipe, "<emphasis>{}</emphasis>", text)
                         .map_err(Error::cannot_write)?,
-                    Token::Pause(Sentence) => write!(pipe, ".").map_err(Error::cannot_write)?,
+                    Token::Pause(Sentence) => write!(pipe, "<break strength=\"medium\"/>").map_err(Error::cannot_write)?,
                     Token::Pause(Paragraph) => write!(pipe, "<break strength=\"x-strong\"/>")
                         .map_err(Error::cannot_write)?,
                     Token::Pause(Seconds(secs)) => {
