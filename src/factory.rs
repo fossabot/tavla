@@ -1,8 +1,8 @@
 use crate::any::AnyVoice;
+#[cfg(windows)]
+use crate::cscript::{CScriptVoice, Error as CScriptVoiceError};
 use crate::espeak::{Error as EspeakError, Espeak};
 use crate::say::{Error as SayError, Say};
-#[cfg(windows)]
-use crate::cscript::{Error as CScriptVoiceError, CScriptVoice};
 use failure::{bail, Error};
 
 /// Picks any available voice and wraps it in
@@ -12,15 +12,15 @@ use failure::{bail, Error};
 /// tries for system-provided speech synthesis.
 pub fn any_voice() -> Result<AnyVoice, Error> {
     if let Ok(espeak) = espeak() {
-        return Ok(espeak.into())
+        return Ok(espeak.into());
     } else if let Ok(say) = say() {
-        return Ok(say.into())
+        return Ok(say.into());
     }
-    
+
     #[cfg(windows)]
     {
         if let Ok(cscript) = CScriptVoice::new() {
-            return Ok(cscript.into())
+            return Ok(cscript.into());
         }
     }
 

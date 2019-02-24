@@ -9,15 +9,15 @@ pub use err::Error;
 use crate::token::{PauseDuration::*, Token, Tokenizer};
 use crate::version::detect_version_with_arg;
 use script::script_path;
+use std::ffi::OsStr;
 use std::io::Write;
+use std::os::windows::ffi::OsStrExt;
 use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
-use std::ffi::OsStr;
-use std::os::windows::ffi::OsStrExt;
 
 #[derive(Debug)]
 pub struct CScriptVoice {
-    script_path: PathBuf
+    script_path: PathBuf,
 }
 
 /// A [`Voice`](trait.Voice.html) that works by opening `cscript`
@@ -25,8 +25,7 @@ pub struct CScriptVoice {
 /// external file.
 impl CScriptVoice {
     pub fn new() -> Result<CScriptVoice, Error> {
-        detect_version_with_arg("cscript", None)
-            .map_err(Error::cscript_not_installed)?;
+        detect_version_with_arg("cscript", None).map_err(Error::cscript_not_installed)?;
 
         let script_path = script_path()?;
 
@@ -55,7 +54,6 @@ impl crate::Voice for CScriptVoice {
         S: AsRef<str>,
     {
         let xml = format_sapi_xml(sentence.as_ref());
-
 
         let mut cscript = self.spawn()?;
         let pipe = cscript.stdin.as_mut().ok_or_else(Error::cannot_open_pipe)?;
@@ -101,17 +99,18 @@ fn format_sapi_xml(sentence: &str) -> String {
 }
 
 mod script {
-    use std::path::PathBuf;
+    use super::Error;
     use std::env::temp_dir;
     use std::fs::File;
     use std::io::Write;
-    use super::Error;
+    use std::path::PathBuf;
 
-    const VISUAL_BASIC_SAY_SCRIPT_CONTENTS : &[u8] = include_str!("../resources/say_lines.vbs").as_bytes();
+    const VISUAL_BASIC_SAY_SCRIPT_CONTENTS: &[u8] =
+        include_str!("../resources/say_lines.vbs").as_bytes();
     // Make sure different tavla versions do not interfere with
     // each other by prepending the crate version to the generated
     // file name.
-    const VISUAL_BASIC_SAY_SCRIPT_FILENAME_UNQUALIFIED : &str = "say_lines_for_tavla.vbs";
+    const VISUAL_BASIC_SAY_SCRIPT_FILENAME_UNQUALIFIED: &str = "say_lines_for_tavla.vbs";
 
     /// If the temporary file directory already contains a file with a name
     /// `VISUAL_BASIC_SAY_SCRIPT_FILENAME`, returns a path to it.
@@ -127,8 +126,7 @@ mod script {
             ));
             dir
         };
-        
-        
+
         if !script_path.exists() {
             File::create(&script_path)
                 .and_then(|mut f| f.write_all(VISUAL_BASIC_SAY_SCRIPT_CONTENTS))
@@ -148,7 +146,10 @@ mod err {
     pub enum Error {
         #[fail(display = "cscript command could not be found: {}", _0)]
         CscriptNotInstalled(#[cause] VersionDetectError),
-        #[fail(display = "could not generate speech script for consumption by cscript: {}", cause)]
+        #[fail(
+            display = "could not generate speech script for consumption by cscript: {}",
+            cause
+        )]
         CannotGenerateScript {
             #[cause]
             cause: IoError,
@@ -178,7 +179,7 @@ mod err {
         pub fn cannot_generate_script(cause: IoError) -> Self {
             Error::CannotGenerateScript {
                 cause,
-                backtrace: Backtrace::new()
+                backtrace: Backtrace::new(),
             }
         }
 

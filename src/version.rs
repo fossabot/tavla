@@ -17,7 +17,7 @@ pub fn detect_version_with_arg(program: &str, arg: Option<&str>) -> Result<Outpu
     if let Some(arg) = arg {
         cmd.arg(arg);
     }
-    
+
     cmd.output()
         .or_else(|cause| Err(Error::version_detect_io(program, cause)))
         .and_then(|output| {

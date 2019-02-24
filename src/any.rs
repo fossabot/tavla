@@ -1,20 +1,13 @@
-use crate::{
-    Espeak,
-    EspeakSpeech,
-    Say,
-    SaySpeech
-};
 #[cfg(windows)]
-use crate::{
-    CScriptVoice,
-    CScriptVoiceSpeech
-};
+use crate::{CScriptVoice, CScriptVoiceSpeech};
+use crate::{Espeak, EspeakSpeech, Say, SaySpeech};
 use failure::Error;
 
 /// A [`Voice`](trait.Voice.html) that works with any of
 /// the built-in techniques (currently only espeak).
 pub enum AnyVoice {
-    #[cfg(windows)] CScript(CScriptVoice),
+    #[cfg(windows)]
+    CScript(CScriptVoice),
     Espeak(Espeak),
     Say(Say),
 }
@@ -22,7 +15,8 @@ pub enum AnyVoice {
 /// A [`Speech`](trait.Speech.html) with any built-in
 /// backend.
 pub enum AnySpeech {
-    #[cfg(windows)] CScript(CScriptVoiceSpeech),
+    #[cfg(windows)]
+    CScript(CScriptVoiceSpeech),
     Espeak(EspeakSpeech),
     Say(SaySpeech),
 }
