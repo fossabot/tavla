@@ -1,6 +1,8 @@
 extern crate tavla;
+#[cfg(windows)]
 use tavla::{cscript_voice, Speech, Voice};
 
+#[cfg(windows)]
 #[test]
 fn speak_cscript() {
     match cscript_voice() {

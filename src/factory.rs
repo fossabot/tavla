@@ -1,6 +1,7 @@
 use crate::any::AnyVoice;
 use crate::espeak::{Error as EspeakError, Espeak};
 use crate::say::{Error as SayError, Say};
+#[cfg(windows)]
 use crate::cscript::{Error as CScriptVoiceError, CScriptVoice};
 use failure::{bail, Error};
 
@@ -11,14 +12,19 @@ use failure::{bail, Error};
 /// tries for system-provided speech synthesis.
 pub fn any_voice() -> Result<AnyVoice, Error> {
     if let Ok(espeak) = espeak() {
-        Ok(espeak.into())
+        return Ok(espeak.into())
     } else if let Ok(say) = say() {
-        Ok(say.into())
-    } else if let Ok(cscript) = CScriptVoice::new() {
-        Ok(cscript.into())
-    } else {
-        bail!("No pre-installed voice found")
+        return Ok(say.into())
     }
+    
+    #[cfg(windows)]
+    {
+        if let Ok(cscript) = CScriptVoice::new() {
+            return Ok(cscript.into())
+        }
+    }
+
+    bail!("No pre-installed voice found")
 }
 
 /// Tries to initialize an [`Espeak`](struct.Espeak.html)
@@ -48,6 +54,7 @@ pub fn say() -> Result<Say, SayError> {
 ///
 /// Works on most Windows systems and may also work with
 /// some setups with `Wine` or similar compatibility layers.
+#[cfg(windows)]
 pub fn cscript_voice() -> Result<CScriptVoice, CScriptVoiceError> {
     CScriptVoice::new()
 }

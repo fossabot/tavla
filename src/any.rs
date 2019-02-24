@@ -2,7 +2,10 @@ use crate::{
     Espeak,
     EspeakSpeech,
     Say,
-    SaySpeech,
+    SaySpeech
+};
+#[cfg(windows)]
+use crate::{
     CScriptVoice,
     CScriptVoiceSpeech
 };
@@ -11,7 +14,7 @@ use failure::Error;
 /// A [`Voice`](trait.Voice.html) that works with any of
 /// the built-in techniques (currently only espeak).
 pub enum AnyVoice {
-    CScript(CScriptVoice),
+    #[cfg(windows)] CScript(CScriptVoice),
     Espeak(Espeak),
     Say(Say),
 }
@@ -19,11 +22,12 @@ pub enum AnyVoice {
 /// A [`Speech`](trait.Speech.html) with any built-in
 /// backend.
 pub enum AnySpeech {
-    CScript(CScriptVoiceSpeech),
+    #[cfg(windows)] CScript(CScriptVoiceSpeech),
     Espeak(EspeakSpeech),
     Say(SaySpeech),
 }
 
+#[cfg(windows)]
 impl From<CScriptVoice> for AnyVoice {
     fn from(cscript: CScriptVoice) -> Self {
         AnyVoice::CScript(cscript)
@@ -51,6 +55,7 @@ impl crate::Voice for AnyVoice {
         S: AsRef<str>,
     {
         match self {
+            #[cfg(windows)]
             AnyVoice::CScript(voice) => Ok(AnySpeech::CScript(voice.speak(sentence)?)),
             AnyVoice::Espeak(voice) => Ok(AnySpeech::Espeak(voice.speak(sentence)?)),
             AnyVoice::Say(voice) => Ok(AnySpeech::Say(voice.speak(sentence)?)),
@@ -63,6 +68,7 @@ impl crate::Speech for AnySpeech {
 
     fn await_done(&self) -> Result<(), Error> {
         match self {
+            #[cfg(windows)]
             AnySpeech::CScript(speech) => Ok(speech.await_done()?),
             AnySpeech::Espeak(speech) => Ok(speech.await_done()?),
             AnySpeech::Say(speech) => Ok(speech.await_done()?),
@@ -71,6 +77,7 @@ impl crate::Speech for AnySpeech {
 
     fn is_done(&self) -> Result<bool, Error> {
         match self {
+            #[cfg(windows)]
             AnySpeech::CScript(speech) => Ok(speech.is_done()?),
             AnySpeech::Espeak(speech) => Ok(speech.is_done()?),
             AnySpeech::Say(speech) => Ok(speech.is_done()?),
@@ -79,6 +86,7 @@ impl crate::Speech for AnySpeech {
 
     fn cancel(&self) -> Result<(), Error> {
         match self {
+            #[cfg(windows)]
             AnySpeech::CScript(speech) => Ok(speech.cancel()?),
             AnySpeech::Espeak(speech) => Ok(speech.cancel()?),
             AnySpeech::Say(speech) => Ok(speech.cancel()?),

@@ -44,6 +44,7 @@ extern crate failure;
 
 mod any;
 mod child;
+#[cfg(windows)]
 mod cscript;
 mod espeak;
 mod factory;

@@ -1,5 +1,7 @@
 //! Uses `cscript` on Windows to run a tiny VB script
 //! that calls into .NET speech synthesis.
+//!
+//! Unsupported on other platforms.
 
 pub use crate::child::Speech;
 pub use err::Error;
