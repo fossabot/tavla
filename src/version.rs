@@ -8,19 +8,23 @@ use std::process::{Command, Output};
 ///
 /// Returns error in case of unsuccessful exit.
 pub fn detect_version(cmd: &str) -> Result<Output, Error> {
-    detect_version_with_arg(cmd, "--version")
+    detect_version_with_arg(cmd, Some("--version"))
 }
 
-pub fn detect_version_with_arg(cmd: &str, arg: &str) -> Result<Output, Error> {
-    Command::new(cmd)
-        .arg(arg)
-        .output()
-        .or_else(|cause| Err(Error::version_detect_io(cmd, cause)))
+pub fn detect_version_with_arg(program: &str, arg: Option<&str>) -> Result<Output, Error> {
+    let mut cmd = Command::new(program);
+
+    if let Some(arg) = arg {
+        cmd.arg(arg);
+    }
+    
+    cmd.output()
+        .or_else(|cause| Err(Error::version_detect_io(program, cause)))
         .and_then(|output| {
             if output.status.success() {
                 Ok(output)
             } else {
-                Err(Error::unsuccessful_exit(cmd, output))
+                Err(Error::unsuccessful_exit(program, output))
             }
         })
 }

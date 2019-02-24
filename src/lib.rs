@@ -1,10 +1,8 @@
 //! _tavla_ is a tiny rust crate for simple speech
 //! synthesis tasks. It opens external processes
 //! to speak strings out loud with minimal setup.
-//! It only supports espeak right now but may gain
-//! additional backends in the future so it works
-//! out of the box on Windows and Mac as well, using
-//! system-provided speech synthesis.
+//! It uses system-provided speech synthesis on Mac
+//! and Windows, and can also use `espeak` (on any system).
 //!
 //! Using it is as simple as this:
 //! ```
@@ -41,10 +39,12 @@
 //! # }
 //! ```
 
+#![feature(const_str_as_bytes)]
 extern crate failure;
 
 mod any;
 mod child;
+mod cscript;
 mod espeak;
 mod factory;
 mod prelude;

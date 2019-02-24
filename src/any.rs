@@ -1,9 +1,17 @@
-use crate::{Espeak, EspeakSpeech, Say, SaySpeech};
+use crate::{
+    Espeak,
+    EspeakSpeech,
+    Say,
+    SaySpeech,
+    CScriptVoice,
+    CScriptVoiceSpeech
+};
 use failure::Error;
 
 /// A [`Voice`](trait.Voice.html) that works with any of
 /// the built-in techniques (currently only espeak).
 pub enum AnyVoice {
+    CScript(CScriptVoice),
     Espeak(Espeak),
     Say(Say),
 }
@@ -11,8 +19,15 @@ pub enum AnyVoice {
 /// A [`Speech`](trait.Speech.html) with any built-in
 /// backend.
 pub enum AnySpeech {
+    CScript(CScriptVoiceSpeech),
     Espeak(EspeakSpeech),
     Say(SaySpeech),
+}
+
+impl From<CScriptVoice> for AnyVoice {
+    fn from(cscript: CScriptVoice) -> Self {
+        AnyVoice::CScript(cscript)
+    }
 }
 
 impl From<Espeak> for AnyVoice {
@@ -36,6 +51,7 @@ impl crate::Voice for AnyVoice {
         S: AsRef<str>,
     {
         match self {
+            AnyVoice::CScript(voice) => Ok(AnySpeech::CScript(voice.speak(sentence)?)),
             AnyVoice::Espeak(voice) => Ok(AnySpeech::Espeak(voice.speak(sentence)?)),
             AnyVoice::Say(voice) => Ok(AnySpeech::Say(voice.speak(sentence)?)),
         }
@@ -47,22 +63,25 @@ impl crate::Speech for AnySpeech {
 
     fn await_done(&self) -> Result<(), Error> {
         match self {
-            AnySpeech::Espeak(espeak) => Ok(espeak.await_done()?),
-            AnySpeech::Say(say) => Ok(say.await_done()?),
+            AnySpeech::CScript(speech) => Ok(speech.await_done()?),
+            AnySpeech::Espeak(speech) => Ok(speech.await_done()?),
+            AnySpeech::Say(speech) => Ok(speech.await_done()?),
         }
     }
 
     fn is_done(&self) -> Result<bool, Error> {
         match self {
-            AnySpeech::Espeak(espeak) => Ok(espeak.is_done()?),
-            AnySpeech::Say(say) => Ok(say.is_done()?),
+            AnySpeech::CScript(speech) => Ok(speech.is_done()?),
+            AnySpeech::Espeak(speech) => Ok(speech.is_done()?),
+            AnySpeech::Say(speech) => Ok(speech.is_done()?),
         }
     }
 
     fn cancel(&self) -> Result<(), Error> {
         match self {
-            AnySpeech::Espeak(espeak) => Ok(espeak.cancel()?),
-            AnySpeech::Say(say) => Ok(say.cancel()?),
+            AnySpeech::CScript(speech) => Ok(speech.cancel()?),
+            AnySpeech::Espeak(speech) => Ok(speech.cancel()?),
+            AnySpeech::Say(speech) => Ok(speech.cancel()?),
         }
     }
 }

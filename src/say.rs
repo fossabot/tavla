@@ -16,7 +16,7 @@ pub struct Say;
 /// a shell and piping text into `say`.
 impl Say {
     pub fn new() -> Result<Say, Error> {
-        detect_version_with_arg("say", "")
+        detect_version_with_arg("say", Some(""))
             .map(|_| Say)
             .map_err(Error::say_not_installed)
     }
@@ -71,7 +71,6 @@ mod err {
     use std::io::Error as IoError;
 
     #[derive(Debug, Fail)]
-    #[fail(display = "Too bad")]
     pub enum Error {
         #[fail(display = "say command could not be found: {}", _0)]
         SayNotInstalled(#[cause] VersionDetectError),

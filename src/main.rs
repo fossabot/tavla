@@ -1,7 +1,10 @@
+#![feature(const_str_as_bytes)]
+
 extern crate failure;
 
 mod any;
 mod child;
+mod cscript;
 mod espeak;
 mod factory;
 mod prelude;
