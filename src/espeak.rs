@@ -49,7 +49,6 @@ impl Espeak {
     }
 
     fn open_espeak(&self) -> Result<Child, Error> {
-        println!("Executing: {:?}", &self.espeak_command);
         self.invoke(Command::new("/bin/sh").args(&["-c", &self.espeak_command]))
     }
 
