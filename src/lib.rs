@@ -9,32 +9,24 @@
 //! extern crate tavla;
 //!
 //! use tavla::{Voice, Speech, any_voice};
-//! use std::thread::sleep;
-//! use std::time::Duration;
 //!
 //! # fn main() -> Result<(), tavla::Error> {
-//! let speech = any_voice()?
-//!     .speak("Oh _my_, the computer is _talking_!")?;
-//! #  // make espeak silent for the test
-//! # speech.cancel()?; let speech = any_voice()?.speak("")?;
-//! speech.await_done()?;
-//! assert!(speech.is_done()?);
+//! any_voice()?
+//! # // make espeak silent for the test
+//! # // let mut voice = any_voice()?; voice.mute(); voice
+//!     .speak("Oh _my_, the computer is _talking_!")?
+//!     .await_done()?;
 //!
-//! sleep(Duration::from_millis(1000));
-//!
+//! let voice = any_voice();
 //! let speech = any_voice()?
-//!     .speak("Isn't that.. _fascinating_?")?;
+//!     .speak(".Isn't that.. _fascinating_?")?;
 //! assert!(!speech.is_done()?);
-//! #  // make espeak silent for the test
-//! # speech.cancel()?; let speech = any_voice()?.speak("")?;
 //! speech.await_done()?;
 //!
-//! let speech = any_voice()?
-//!     .speak("I have some doubts about giving computers the power of speech!")?;
-//! assert!(!speech.is_done()?);
-//! speech.cancel()?; // Nonsense... Sh sh shhh...
-//! assert!(speech.is_done()?);
-//!
+//! any_voice()?
+//!     .speak("I have some doubts about giving \
+//!             computers the power of speech!")?
+//!     .cancel()?; // Nonsense... Sh sh shhh...
 //! # Ok(())
 //! # }
 //! ```
