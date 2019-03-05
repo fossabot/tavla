@@ -86,7 +86,7 @@ impl crate::Speech for Speech {
     /// speech has finished or cancelled.
     /// `await_done` will report an unsuccessful exit
     /// error if called after `cancel`.
-    fn cancel(&self) -> Result<(), Self::Error> {
+    fn cancel(&mut self) -> Result<(), Self::Error> {
         let mut child = self
             .child
             .try_lock()

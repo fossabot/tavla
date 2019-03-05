@@ -78,7 +78,7 @@ impl crate::Speech for AnySpeech {
         }
     }
 
-    fn cancel(&self) -> Result<(), Error> {
+    fn cancel(&mut self) -> Result<(), Error> {
         match self {
             #[cfg(windows)]
             AnySpeech::CScript(speech) => Ok(speech.cancel()?),

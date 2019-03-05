@@ -12,5 +12,5 @@ pub trait Speech {
     fn is_done(&self) -> Result<bool, Self::Error>;
 
     /// Ends the speech, if still running, otherwise no effect.
-    fn cancel(&self) -> Result<(), Self::Error>;
+    fn cancel(&mut self) -> Result<(), Self::Error>;
 }
