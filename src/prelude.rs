@@ -1,4 +1,5 @@
 pub use crate::any::{AnySpeech, AnyVoice};
+pub use crate::child::Error as ChildError;
 #[cfg(windows)]
 pub use crate::cscript::{CScriptVoice, Error as CScriptVoiceError, Speech as CScriptVoiceSpeech};
 pub use crate::espeak::{Error as EspeakError, Espeak, Speech as EspeakSpeech};

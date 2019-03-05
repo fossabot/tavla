@@ -1,4 +1,4 @@
-use err::Error;
+pub use err::Error;
 use std::process::Child;
 use std::sync::{
     atomic::{AtomicBool, Ordering},
