@@ -73,6 +73,7 @@ impl Voice for Espeak {
         {
             let pipe = &mut espeak.stdin;
             let pipe = pipe.as_mut().ok_or_else(Error::cannot_open_pipe)?;
+            write!(pipe, "<speak>").map_err(Error::cannot_write)?;
             for token in Tokenizer::new(sentence.as_ref()) {
                 match token {
                     Token::Normal(text) => write!(pipe, "{}", text).map_err(Error::cannot_write)?,
@@ -86,7 +87,7 @@ impl Voice for Espeak {
                     }
                 }
             }
-            writeln!(pipe, "").map_err(Error::cannot_write)?;
+            writeln!(pipe, "</speak>").map_err(Error::cannot_write)?;
             pipe.flush().map_err(Error::cannot_write)?;
         }
         Ok(Speech::new(espeak))
