@@ -86,6 +86,8 @@ impl Voice for Espeak {
                     }
                 }
             }
+            writeln!(pipe, "").map_err(Error::cannot_write)?;
+            pipe.flush().map_err(Error::cannot_write)?;
         }
         Ok(Speech::new(espeak))
     }

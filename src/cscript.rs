@@ -65,6 +65,7 @@ impl crate::Voice for CScriptVoice {
             pipe.write(&[lower_byte, upper_byte])
                 .map_err(Error::cannot_write)?;
         }
+        pipe.flush().map_err(Error::cannot_write)?;
 
         Ok(Speech::new(cscript))
     }
