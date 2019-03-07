@@ -41,7 +41,7 @@ impl crate::Voice for Say {
         S: AsRef<str>,
     {
         let mut say = self.spawn()?;
-        let pipe = say.stdin.as_mut().ok_or_else(Error::cannot_open_pipe)?;
+        let mut pipe = say.stdin.take().ok_or_else(Error::cannot_open_pipe)?;
 
         for token in Tokenizer::new(sentence.as_ref()) {
             match token {

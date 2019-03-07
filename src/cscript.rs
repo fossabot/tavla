@@ -56,7 +56,7 @@ impl crate::Voice for CScriptVoice {
         let xml = format_sapi_xml(sentence.as_ref());
 
         let mut cscript = self.spawn()?;
-        let pipe = cscript.stdin.as_mut().ok_or_else(Error::cannot_open_pipe)?;
+        let mut pipe = cscript.stdin.take().ok_or_else(Error::cannot_open_pipe)?;
 
         for code_point_16 in OsStr::new(&xml).encode_wide() {
             // NOTE whether this works or not depends on endianness

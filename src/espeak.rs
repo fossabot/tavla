@@ -70,26 +70,24 @@ impl Voice for Espeak {
         S: AsRef<str>,
     {
         let mut espeak = self.open_espeak()?;
-        {
-            let pipe = &mut espeak.stdin;
-            let pipe = pipe.as_mut().ok_or_else(Error::cannot_open_pipe)?;
-            write!(pipe, "<speak>").map_err(Error::cannot_write)?;
-            for token in Tokenizer::new(sentence.as_ref()) {
-                match token {
-                    Token::Normal(text) => write!(pipe, "{}", text).map_err(Error::cannot_write)?,
-                    Token::Emphasised(text) => write!(pipe, "<emphasis>{}</emphasis>", text)
-                        .map_err(Error::cannot_write)?,
-                    Token::Pause(Sentence) => write!(pipe, "<break strength=\"medium\"/>").map_err(Error::cannot_write)?,
-                    Token::Pause(Paragraph) => write!(pipe, "<break strength=\"x-strong\"/>")
-                        .map_err(Error::cannot_write)?,
-                    Token::Pause(Seconds(secs)) => {
-                        write!(pipe, "<break time=\"{}s\"/>", secs).map_err(Error::cannot_write)?
-                    }
+        let pipe = espeak.stdin.take();
+        let mut pipe = pipe.ok_or_else(Error::cannot_open_pipe)?;
+        write!(pipe, "<speak>").map_err(Error::cannot_write)?;
+        for token in Tokenizer::new(sentence.as_ref()) {
+            match token {
+                Token::Normal(text) => write!(pipe, "{}", text).map_err(Error::cannot_write)?,
+                Token::Emphasised(text) => write!(pipe, "<emphasis>{}</emphasis>", text)
+                    .map_err(Error::cannot_write)?,
+                Token::Pause(Sentence) => write!(pipe, "<break strength=\"medium\"/>").map_err(Error::cannot_write)?,
+                Token::Pause(Paragraph) => write!(pipe, "<break strength=\"x-strong\"/>")
+                    .map_err(Error::cannot_write)?,
+                Token::Pause(Seconds(secs)) => {
+                    write!(pipe, "<break time=\"{}s\"/>", secs).map_err(Error::cannot_write)?
                 }
             }
-            writeln!(pipe, "</speak>").map_err(Error::cannot_write)?;
-            pipe.flush().map_err(Error::cannot_write)?;
         }
+        writeln!(pipe, "</speak>").map_err(Error::cannot_write)?;
+        pipe.flush().map_err(Error::cannot_write)?;
         Ok(Speech::new(espeak))
     }
 }
