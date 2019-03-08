@@ -1,12 +1,12 @@
-use std::fmt::{Debug, Display};
 use failure::Fail;
+use std::fmt::{Debug, Display};
 
 /// An ongoing or finished piece of speech.
 ///
 /// A speech is typically running asynchronously
 /// and its end can be awaited using this trait.
 pub trait Speech {
-    type Error : Fail + Send + Sync + Debug + Display;
+    type Error: Fail + Send + Sync + Debug + Display;
 
     /// Waits until the speech is finished.
     fn await_done(&self) -> Result<(), Self::Error>;

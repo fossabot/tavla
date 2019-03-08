@@ -1,11 +1,7 @@
-use crate::{
-    Espeak, EspeakSpeech, EspeakError,
-    Say, SaySpeech, SayError,
-    ChildError
-};
 #[cfg(windows)]
-use crate::{CScriptVoice, CScriptVoiceSpeech, CScriptVoiceError};
-use failure::{Fail};
+use crate::{CScriptVoice, CScriptVoiceError, CScriptVoiceSpeech};
+use crate::{ChildError, Espeak, EspeakError, EspeakSpeech, Say, SayError, SaySpeech};
+use failure::Fail;
 
 /// A [`Voice`](trait.Voice.html) that works with any of
 /// the built-in techniques (currently only espeak).
@@ -92,13 +88,16 @@ impl crate::Voice for AnyVoice {
     {
         match self {
             #[cfg(windows)]
-            AnyVoice::CScript(voice) => voice.speak(sentence)
+            AnyVoice::CScript(voice) => voice
+                .speak(sentence)
                 .map(|s| AnySpeech::CScript(s))
                 .map_err(From::from),
-            AnyVoice::Espeak(voice) => voice.speak(sentence)
+            AnyVoice::Espeak(voice) => voice
+                .speak(sentence)
                 .map(|s| AnySpeech::Espeak(s))
                 .map_err(From::from),
-            AnyVoice::Say(voice) => voice.speak(sentence)
+            AnyVoice::Say(voice) => voice
+                .speak(sentence)
                 .map(|s| AnySpeech::Say(s))
                 .map_err(From::from),
         }

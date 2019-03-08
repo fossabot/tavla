@@ -15,41 +15,16 @@ use std::process::{Child, Command, Stdio};
 /// A [`Voice`](trait.Voice.html) that works by opening
 /// a shell and piping text into `espeak`.
 #[derive(Debug)]
-pub struct Espeak {
-    espeak_command: String,
-}
+pub struct Espeak;
 
 impl Espeak {
     pub fn new() -> Result<Espeak, Error> {
         detect_version("espeak").map_err(Error::espeak_not_installed)?;
-        // TODO the piping should be doable without an external shell
-        detect_version("sh").map_err(Error::sh_not_installed)?;
-
-        Ok(Espeak {
-            espeak_command: Self::espeak_command(None),
-        })
-    }
-
-    /// Espeak subcommand for execution in a shell
-    fn espeak_command(voice_name: Option<&str>) -> String {
-        // -m enables SSML markup for <emphasis>
-        let mut espeak_command = String::from("espeak --stdin -m");
-
-        if let Some(voice) = voice_name.as_ref() {
-            espeak_command.push_str(" -v ");
-            espeak_command.push_str(voice);
-        }
-
-        let paplay_installed = detect_version("paplay").is_ok();
-        if paplay_installed {
-            espeak_command.push_str(" --stdout | paplay");
-        }
-
-        espeak_command
+        Ok(Espeak)
     }
 
     fn open_espeak(&self) -> Result<Child, Error> {
-        self.invoke(Command::new("/bin/sh").args(&["-c", &self.espeak_command]))
+        self.invoke(Command::new("espeak").args(&["--stdin", "-m"]))
     }
 
     fn invoke(&self, cmd: &mut Command) -> Result<Child, Error> {
@@ -76,11 +51,15 @@ impl Voice for Espeak {
         for token in Tokenizer::new(sentence.as_ref()) {
             match token {
                 Token::Normal(text) => write!(pipe, "{}", text).map_err(Error::cannot_write)?,
-                Token::Emphasised(text) => write!(pipe, "<emphasis>{}</emphasis>", text)
-                    .map_err(Error::cannot_write)?,
-                Token::Pause(Sentence) => write!(pipe, "<break strength=\"medium\"/>").map_err(Error::cannot_write)?,
-                Token::Pause(Paragraph) => write!(pipe, "<break strength=\"x-strong\"/>")
-                    .map_err(Error::cannot_write)?,
+                Token::Emphasised(text) => {
+                    write!(pipe, "<emphasis>{}</emphasis>", text).map_err(Error::cannot_write)?
+                }
+                Token::Pause(Sentence) => {
+                    write!(pipe, "<break strength=\"medium\"/>").map_err(Error::cannot_write)?
+                }
+                Token::Pause(Paragraph) => {
+                    write!(pipe, "<break strength=\"x-strong\"/>").map_err(Error::cannot_write)?
+                }
                 Token::Pause(Seconds(secs)) => {
                     write!(pipe, "<break time=\"{}s\"/>", secs).map_err(Error::cannot_write)?
                 }
@@ -103,12 +82,6 @@ mod err {
         /// No `espeak` on path.
         #[fail(display = "espeak executable could not be found: {}", _0)]
         EspeakNotInstalled(#[cause] VersionDetectError),
-        #[fail(
-            display = "No shell executable (sh) found, which is required to run espeak with tavla: {}",
-            _0
-        )]
-        /// No `sh` shell on path.
-        ShNotInstalled(#[cause] VersionDetectError),
         #[fail(display = "espeak could not be started: {}", cause)]
         CannotInvoke {
             #[cause]
@@ -128,10 +101,6 @@ mod err {
     impl Error {
         pub fn espeak_not_installed(cause: VersionDetectError) -> Self {
             Error::EspeakNotInstalled(cause)
-        }
-
-        pub fn sh_not_installed(cause: VersionDetectError) -> Self {
-            Error::ShNotInstalled(cause)
         }
 
         pub fn cannot_invoke(cause: io::Error) -> Self {
