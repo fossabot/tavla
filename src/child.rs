@@ -1,26 +1,30 @@
 pub use err::Error;
-use std::process::Child;
+use std::process::{Child, ExitStatus};
 use std::sync::{
     atomic::{AtomicBool, Ordering},
     Mutex,
 };
+use std::time::Duration;
+use std::thread::sleep;
+
+/// Time between checks in `await_done`
+const AWAIT_DONE_CHECK_INTERVAL : Duration = Duration::from_millis(5);
+/// Time that a child process has for graceful exit before being forcibly
+/// killed.
+const CANCEL_GRACE_PERIOD : Duration = Duration::from_millis(25);
 
 /// Ongoing or finished [`Speech`](trait.Speech.html) in an external process.
 pub struct Speech {
-    child: Mutex<Child>,
-    done: AtomicBool,
+    state: Mutex<State>
 }
 
 impl Speech {
-    pub fn new(mut espeak: Child) -> Self {
-        let done = espeak
-            .try_wait()
-            .map(|status| status.is_some())
-            .unwrap_or(false);
+    pub fn new(mut child: Child) -> Self {
+        let mut state = State::Running(child);
+        state.update();
 
         Speech {
-            child: Mutex::new(espeak),
-            done: AtomicBool::new(done),
+            state: Mutex::new(state)
         }
     }
 }
@@ -28,76 +32,110 @@ impl Speech {
 impl crate::Speech for Speech {
     type Error = Error;
 
-    /// Waits until the speech is finished and returns
-    /// `Ok(())`.
+    /// Waits until the speech is finished or has been
+    /// cancelled and returns `Ok(())`.
     ///
     /// If already exited successfully before the call,
-    /// also reports `Ok(())`. If manually cancelled
-    /// or otherwise exited with an unsuccessful exit status,
-    /// returns `Err(ExitFailure)`.
+    /// or has been manually cancelled also reports `Ok(())`.
     ///
-    /// Returns error on I/O errors during checking.
-    ///
-    /// Also returns an `ExitFailure` error if cancelled
-    /// with `cancel`.
+    /// Returns error on I/O errors during checking or
+    /// when an unsuccessful exit status has been reported,
+    /// except is has been cancelled.
     fn await_done(&self) -> Result<(), Self::Error> {
-        self.child
-            .lock()
-            .expect("Failed to obtain lock on espeak child")
-            .wait()
-            .map_err(Error::cannot_await)
-            .and_then(|status| {
-                self.done.store(true, Ordering::SeqCst);
-                if status.success() {
-                    Ok(())
-                } else {
-                    Err(Error::exit_failure(status))
-                }
-            })
+        loop {
+            if self.is_done()? {
+                return Ok(());
+            }
+
+            // Unlock most of the time so `is_done` calls
+            // do not have to wait too long for an `await_done`.
+
+            // FIXME we should let the OS wake up as soon as possible,
+            // rather than always waiting the full check interval
+            sleep(AWAIT_DONE_CHECK_INTERVAL);
+        }
     }
 
     /// Checks if the speech is over, either because it
     /// finished by itself, or because it was cancelled.
+    /// 
+    /// Returns an error on unsuccessful exit status.
     fn is_done(&self) -> Result<bool, Self::Error> {
-        if self.done.load(Ordering::SeqCst) {
-            Ok(true)
-        } else {
-            match self.child.try_lock() {
-                // Could obtain the lock, check if finished by now
-                Ok(mut child) => child.try_wait().map_err(Error::cannot_await).map(|status| {
-                    if status.is_some() {
-                        self.done.store(true, Ordering::SeqCst);
-                        true
-                    } else {
-                        false
-                    }
-                }),
-                // Probably someone else has the lock, awaiting the result
-                // assume not done (could also be another is_done call, which
-                // would be a false negative)
-                Err(_) => Ok(false),
-            }
-        }
+        let mut state = self.state.try_lock()
+            .expect("Failed to obtain lock on child process");
+
+        state.update();
+        state.exited_successfully()
     }
 
-    /// Cancels the ongoing speech. This may fail if
-    /// another thread is trying to await the end of
-    /// the speech. Can safely be called after the
-    /// speech has finished or cancelled.
+    /// Cancels the ongoing speech. Can safely be called
+    /// after the speech has finished or cancelled.
     /// `await_done` will report an unsuccessful exit
     /// error if called after `cancel`.
     fn cancel(&mut self) -> Result<(), Self::Error> {
-        let mut child = self
-            .child
-            .try_lock()
-            .map_err(|_| Error::cancel_conflict())?;
+        let mut state = self.state.try_lock()
+            .expect("Failed to obtain lock on child process");
 
-        if !self.is_done()? {
-            child.kill().map_err(Error::cannot_cancel)?;
-            self.done.store(true, Ordering::SeqCst);
+        state.cancel()
+    }
+}
+
+enum State {
+    Running(Child),
+    Done(ExitStatus),
+    Cancelled
+}
+
+impl State {
+    fn close(&mut self, status: ExitStatus) {
+        *self = State::Done(status);
+    }
+
+    fn update(&mut self) {
+        match self {
+            State::Running(child) => {
+                let status = child.try_wait()
+                    .expect("Failed to obtain check if child process has exited");
+
+                if let Some(status) = status {
+                    *self = State::Done(status);
+                }
+            },
+            _ => (), // Done state and cancelled are both terminal, no need to update
+        }
+    }
+
+    fn exited_successfully(&self) -> Result<bool, Error> {
+        match self {
+            State::Running(_) => Ok(false),
+            State::Done(status) => if status.success() {
+                Ok(true)
+            } else {
+                Err(Error::exit_failure(status.clone()))
+            },
+            State::Cancelled => Ok(true)
+        }
+    }
+
+    fn cancel(&mut self) -> Result<(), Error> {
+        self.update();
+        if let State::Running(child) = self {
+            child.kill()
+                .expect("Failed to send termination signal to child");
+
+            sleep(CANCEL_GRACE_PERIOD);
         }
 
-        Ok(())
+        // Check if cancellation worked
+        self.update();
+        match self {
+            State::Running(_) => Err(Error::cancel_ignored()),
+            State::Cancelled => Ok(()), // Another thread must have cancelled
+            State::Done(_) => {
+                *self = State::Cancelled;
+                Ok(())
+            }
+        }
     }
 }
 
@@ -128,9 +166,9 @@ mod err {
             backtrace: Backtrace,
         },
         #[fail(
-            display = "failed to cancel speech since another thread is trying to await the end of the speech"
+            display = "attempted to cancel child process, but is still running"
         )]
-        CancelConflict { backtrace: Backtrace },
+        CancelIgnored { backtrace: Backtrace },
     }
 
     impl Error {
@@ -155,8 +193,8 @@ mod err {
             }
         }
 
-        pub fn cancel_conflict() -> Self {
-            Error::CancelConflict {
+        pub fn cancel_ignored() -> Self {
+            Error::CancelIgnored {
                 backtrace: Backtrace::new(),
             }
         }

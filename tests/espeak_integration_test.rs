@@ -11,13 +11,14 @@ fn speak_espeak() {
         }
         // If it is, it must be invokable successfully
         Ok(espeak) => {
-            espeak
+            let mut speech = espeak
                 .speak("Hello with espeak.... And hello again after a long _pause_.")
-                .expect("espeak obtained, but failed to speak a phrase")
-                .await_done()
-                .expect("espeak obtained, but failed to speak a phrase until done");
-
-            println!("espeak available: {:?}", espeak);
+                .expect("espeak obtained, but failed to speak a phrase");
+                
+            // Check if cancellation works
+            assert!(!speech.is_done().unwrap());
+            speech.cancel().unwrap();
+            assert!(speech.is_done().unwrap());
         }
     }
 }
