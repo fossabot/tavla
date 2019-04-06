@@ -11,7 +11,7 @@ use std::thread::sleep;
 const AWAIT_DONE_CHECK_INTERVAL : Duration = Duration::from_millis(5);
 /// Time that a child process has for graceful exit before being forcibly
 /// killed.
-const CANCEL_GRACE_PERIOD : Duration = Duration::from_millis(25);
+const CANCEL_GRACE_PERIOD : Duration = Duration::from_millis(200);
 
 /// Ongoing or finished [`Speech`](trait.Speech.html) in an external process.
 pub struct Speech {
