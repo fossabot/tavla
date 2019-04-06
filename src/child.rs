@@ -11,7 +11,8 @@ use std::thread::sleep;
 const AWAIT_DONE_CHECK_INTERVAL : Duration = Duration::from_millis(5);
 /// Time that a child process has for graceful exit before being forcibly
 /// killed.
-const CANCEL_GRACE_PERIOD : Duration = Duration::from_millis(200);
+const CANCEL_GRACE_PERIOD_MS : u64 = 300;
+const CANCEL_GRACE_CHECK_COUNT : u64 = 15;
 
 /// Ongoing or finished [`Speech`](trait.Speech.html) in an external process.
 pub struct Speech {
@@ -122,20 +123,22 @@ impl State {
         if let State::Running(child) = self {
             child.kill()
                 .expect("Failed to send termination signal to child");
-
-            sleep(CANCEL_GRACE_PERIOD);
         }
 
-        // Check if cancellation worked
-        self.update();
-        match self {
-            State::Running(_) => Err(Error::cancel_ignored()),
-            State::Cancelled => Ok(()), // Another thread must have cancelled
-            State::Done(_) => {
-                *self = State::Cancelled;
-                Ok(())
+        // Wait for cancellation to succeed for some time
+        for i in 1..=CANCEL_GRACE_CHECK_COUNT {
+            self.update();
+            match self {
+                State::Running(_) => (),
+                State::Cancelled => return Ok(()), // Another thread must have cancelled
+                State::Done(_) => {
+                    *self = State::Cancelled;
+                    return Ok(())
+                }
             }
         }
+
+        Err(Error::cancel_ignored())
     }
 }
 
