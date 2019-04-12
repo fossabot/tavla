@@ -6,11 +6,10 @@ use std::time::Duration;
 
 /// Time between checks in `await_done`
 const AWAIT_DONE_CHECK_INTERVAL: Duration = Duration::from_millis(5);
-/// Time that a child process has for graceful exit before being forcibly
-/// killed.
-const CANCEL_GRACE_PERIOD_MS: u64 = 300;
-const CANCEL_GRACE_CHECK_COUNT: u64 = 15;
-const CANCEL_WAIT_SLICE: Duration = Duration::from_millis(CANCEL_GRACE_PERIOD_MS / CANCEL_GRACE_CHECK_COUNT);
+/// When waiting with exponential backoff, never wait longer than this
+const CANCEL_GRACE_TIMEOUT: Duration = Duration::from_millis(300);
+/// Milliseconds to wait on first attempt, then this to the power of two, then three, ...
+const CANCEL_GRACE_WAIT_SLICE_BASE: f64 = 2.3;
 
 /// Ongoing or finished [`Speech`](trait.Speech.html) in an external process.
 pub struct Speech {
@@ -135,17 +134,34 @@ impl State {
         }
 
         // Wait for cancellation to succeed for some time
-        for _ in 1..=CANCEL_GRACE_CHECK_COUNT {
-            
+        let mut remaining_wait_time = Some(CANCEL_GRACE_TIMEOUT);
+        for attempt in 1.. {
+            // If not gone on first check, wait for a bit, then check again
             if let State::Running(_) = self {
-                // If not gone on first check, wait for a bit,
-                // then check again
-                sleep(CANCEL_WAIT_SLICE);
-                self.update();
+                if let Some(current_remaining) = remaining_wait_time {
+                    // Still not hit the maximum wait time, wait with exponential backoff
+                    let wanted_wait_time =
+                        CANCEL_GRACE_WAIT_SLICE_BASE.powi(attempt).round() as u64;
+                    let wanted_wait_time = Duration::from_millis(wanted_wait_time);
+                    let actual_wait_time = wanted_wait_time.min(current_remaining);
+
+                    sleep(actual_wait_time);
+
+                    remaining_wait_time = if wanted_wait_time >= current_remaining {
+                        None
+                    } else {
+                        Some(current_remaining - actual_wait_time)
+                    };
+
+                    // And update after waiting
+                    self.update();
+                } else {
+                    break;
+                }
             }
 
             match self {
-                State::Running(_) => (), // Try again
+                State::Running(_) => (),           // Try again
                 State::Cancelled => return Ok(()), // Another thread must have cancelled, ok
                 State::Done(_) => {
                     // It exited successfully at the time we killed, ok
@@ -155,8 +171,8 @@ impl State {
             }
         }
 
-        // After CANCEL_GRACE_CHECK_COUNT times of waiting, give up
-        Err(Error::cancel_ignored())
+        // Hit the timeout, exit
+        return Err(Error::cancel_ignored());
     }
 }
 
