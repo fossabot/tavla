@@ -10,6 +10,7 @@ const AWAIT_DONE_CHECK_INTERVAL: Duration = Duration::from_millis(5);
 /// killed.
 const CANCEL_GRACE_PERIOD_MS: u64 = 300;
 const CANCEL_GRACE_CHECK_COUNT: u64 = 15;
+const CANCEL_WAIT_SLICE: Duration = Duration::from_millis(CANCEL_GRACE_PERIOD_MS / CANCEL_GRACE_CHECK_COUNT);
 
 /// Ongoing or finished [`Speech`](trait.Speech.html) in an external process.
 pub struct Speech {
@@ -128,21 +129,26 @@ impl State {
             child
                 .kill()
                 .expect("Failed to send termination signal to child");
+
+            // Update to avoid wait if succeeded without needing to wait
+            self.update();
         }
 
         // Wait for cancellation to succeed for some time
-        let wait_slice = Duration::from_millis(CANCEL_GRACE_PERIOD_MS / CANCEL_GRACE_CHECK_COUNT);
-
         for _ in 1..=CANCEL_GRACE_CHECK_COUNT {
-            self.update();
+            
+            if let State::Running(_) = self {
+                // If not gone on first check, wait for a bit,
+                // then check again
+                sleep(CANCEL_WAIT_SLICE);
+                self.update();
+            }
+
             match self {
-                State::Running(_) => {
-                    // If not gone on first attempt,
-                    // wait a bit for check count minus one times and check again
-                    sleep(wait_slice);
-                }
-                State::Cancelled => return Ok(()), // Another thread must have cancelled
+                State::Running(_) => (), // Try again
+                State::Cancelled => return Ok(()), // Another thread must have cancelled, ok
                 State::Done(_) => {
+                    // It exited successfully at the time we killed, ok
                     *self = State::Cancelled;
                     return Ok(());
                 }
