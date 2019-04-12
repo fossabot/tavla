@@ -1,31 +1,28 @@
 pub use err::Error;
 use std::process::{Child, ExitStatus};
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Mutex,
-};
-use std::time::Duration;
+use std::sync::Mutex;
 use std::thread::sleep;
+use std::time::Duration;
 
 /// Time between checks in `await_done`
-const AWAIT_DONE_CHECK_INTERVAL : Duration = Duration::from_millis(5);
+const AWAIT_DONE_CHECK_INTERVAL: Duration = Duration::from_millis(5);
 /// Time that a child process has for graceful exit before being forcibly
 /// killed.
-const CANCEL_GRACE_PERIOD_MS : u64 = 300;
-const CANCEL_GRACE_CHECK_COUNT : u64 = 15;
+const CANCEL_GRACE_PERIOD_MS: u64 = 300;
+const CANCEL_GRACE_CHECK_COUNT: u64 = 15;
 
 /// Ongoing or finished [`Speech`](trait.Speech.html) in an external process.
 pub struct Speech {
-    state: Mutex<State>
+    state: Mutex<State>,
 }
 
 impl Speech {
-    pub fn new(mut child: Child) -> Self {
+    pub fn new(child: Child) -> Self {
         let mut state = State::Running(child);
         state.update();
 
         Speech {
-            state: Mutex::new(state)
+            state: Mutex::new(state),
         }
     }
 }
@@ -59,10 +56,12 @@ impl crate::Speech for Speech {
 
     /// Checks if the speech is over, either because it
     /// finished by itself, or because it was cancelled.
-    /// 
+    ///
     /// Returns an error on unsuccessful exit status.
     fn is_done(&self) -> Result<bool, Self::Error> {
-        let mut state = self.state.try_lock()
+        let mut state = self
+            .state
+            .try_lock()
             .expect("Failed to obtain lock on child process");
 
         state.update();
@@ -74,7 +73,9 @@ impl crate::Speech for Speech {
     /// `await_done` will report an unsuccessful exit
     /// error if called after `cancel`.
     fn cancel(&mut self) -> Result<(), Self::Error> {
-        let mut state = self.state.try_lock()
+        let mut state = self
+            .state
+            .try_lock()
             .expect("Failed to obtain lock on child process");
 
         state.cancel()
@@ -84,7 +85,7 @@ impl crate::Speech for Speech {
 enum State {
     Running(Child),
     Done(ExitStatus),
-    Cancelled
+    Cancelled,
 }
 
 impl State {
@@ -95,13 +96,14 @@ impl State {
     fn update(&mut self) {
         match self {
             State::Running(child) => {
-                let status = child.try_wait()
+                let status = child
+                    .try_wait()
                     .expect("Failed to obtain check if child process has exited");
 
                 if let Some(status) = status {
-                    *self = State::Done(status);
+                    self.close(status)
                 }
-            },
+            }
             _ => (), // Done state and cancelled are both terminal, no need to update
         }
     }
@@ -109,35 +111,45 @@ impl State {
     fn exited_successfully(&self) -> Result<bool, Error> {
         match self {
             State::Running(_) => Ok(false),
-            State::Done(status) => if status.success() {
-                Ok(true)
-            } else {
-                Err(Error::exit_failure(status.clone()))
-            },
-            State::Cancelled => Ok(true)
+            State::Done(status) => {
+                if status.success() {
+                    Ok(true)
+                } else {
+                    Err(Error::exit_failure(status.clone()))
+                }
+            }
+            State::Cancelled => Ok(true),
         }
     }
 
     fn cancel(&mut self) -> Result<(), Error> {
         self.update();
         if let State::Running(child) = self {
-            child.kill()
+            child
+                .kill()
                 .expect("Failed to send termination signal to child");
         }
 
         // Wait for cancellation to succeed for some time
-        for i in 1..=CANCEL_GRACE_CHECK_COUNT {
+        let wait_slice = Duration::from_millis(CANCEL_GRACE_PERIOD_MS / CANCEL_GRACE_CHECK_COUNT);
+
+        for _ in 1..=CANCEL_GRACE_CHECK_COUNT {
             self.update();
             match self {
-                State::Running(_) => (),
+                State::Running(_) => {
+                    // If not gone on first attempt,
+                    // wait a bit for check count minus one times and check again
+                    sleep(wait_slice);
+                }
                 State::Cancelled => return Ok(()), // Another thread must have cancelled
                 State::Done(_) => {
                     *self = State::Cancelled;
-                    return Ok(())
+                    return Ok(());
                 }
             }
         }
 
+        // After CANCEL_GRACE_CHECK_COUNT times of waiting, give up
         Err(Error::cancel_ignored())
     }
 }
@@ -168,9 +180,7 @@ mod err {
             cause: io::Error,
             backtrace: Backtrace,
         },
-        #[fail(
-            display = "attempted to cancel child process, but is still running"
-        )]
+        #[fail(display = "attempted to cancel child process, but is still running")]
         CancelIgnored { backtrace: Backtrace },
     }
 

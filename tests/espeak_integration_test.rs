@@ -14,7 +14,7 @@ fn speak_espeak() {
             let mut speech = espeak
                 .speak("Hello with espeak.... And hello again after a long _pause_.")
                 .expect("espeak obtained, but failed to speak a phrase");
-                
+
             // Check if cancellation works
             assert!(!speech.is_done().unwrap());
             speech.cancel().unwrap();
