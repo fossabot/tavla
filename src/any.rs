@@ -2,6 +2,7 @@
 use crate::{CScriptVoice, CScriptVoiceError, CScriptVoiceSpeech};
 use crate::{ChildError, Espeak, EspeakError, EspeakSpeech, Say, SayError, SaySpeech};
 use failure::Fail;
+use std::path::Path;
 
 /// A [`Voice`](trait.Voice.html) that works with any of
 /// the built-in techniques (currently only espeak).
@@ -98,6 +99,32 @@ impl crate::Voice for AnyVoice {
                 .map_err(From::from),
             AnyVoice::Say(voice) => voice
                 .speak(sentence)
+                .map(|s| AnySpeech::Say(s))
+                .map_err(From::from),
+        }
+    }
+
+    fn speak_to_file<S, P>(
+        &self,
+        sentence: S,
+        wav_file_path: P,
+    ) -> Result<Self::Speech, Self::Error>
+    where
+        S: AsRef<str>,
+        P: AsRef<Path>,
+    {
+        match self {
+            #[cfg(windows)]
+            AnyVoice::CScript(voice) => voice
+                .speak_to_file(sentence, wav_file_path)
+                .map(|s| AnySpeech::CScript(s))
+                .map_err(From::from),
+            AnyVoice::Espeak(voice) => voice
+                .speak_to_file(sentence, wav_file_path)
+                .map(|s| AnySpeech::Espeak(s))
+                .map_err(From::from),
+            AnyVoice::Say(voice) => voice
+                .speak_to_file(sentence, wav_file_path)
                 .map(|s| AnySpeech::Say(s))
                 .map_err(From::from),
         }

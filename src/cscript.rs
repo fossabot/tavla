@@ -12,7 +12,7 @@ use script::script_path;
 use std::ffi::OsStr;
 use std::io::Write;
 use std::os::windows::ffi::OsStrExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 
 #[derive(Debug)]
@@ -68,6 +68,18 @@ impl crate::Voice for CScriptVoice {
         pipe.flush().map_err(Error::cannot_write)?;
 
         Ok(Speech::new(cscript))
+    }
+
+    fn speak_to_file<S, P>(
+        &self,
+        sentence: S,
+        wav_file_path: P,
+    ) -> Result<Self::Speech, Self::Error>
+    where
+        S: AsRef<str>,
+        P: AsRef<Path>,
+    {
+        unimplemented!("speaking to file is not yet available on windows")
     }
 }
 

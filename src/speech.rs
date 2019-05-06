@@ -5,6 +5,8 @@ use std::fmt::{Debug, Display};
 ///
 /// A speech is typically running asynchronously
 /// and its end can be awaited using this trait.
+///
+/// Speeches can be aloud or to file.
 pub trait Speech {
     type Error: Fail + Send + Sync + Debug + Display;
 

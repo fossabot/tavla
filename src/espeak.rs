@@ -10,7 +10,8 @@ use crate::token::{PauseDuration::*, Token, Tokenizer};
 use crate::version::detect_version;
 use crate::Voice;
 use std::io::Write;
-use std::process::{Child, Command, Stdio};
+use std::path::Path;
+use std::process::{Child, ChildStdin, Command, Stdio};
 
 /// A [`Voice`](trait.Voice.html) that works by opening
 /// a shell and piping text into `espeak`.
@@ -23,8 +24,16 @@ impl Espeak {
         Ok(Espeak)
     }
 
-    fn open_espeak(&self) -> Result<Child, Error> {
-        self.invoke(Command::new("espeak").args(&["--stdin", "-m"]))
+    fn open_espeak(&self, output_wav_path: Option<&Path>) -> Result<Child, Error> {
+        let mut cmd = Command::new("espeak");
+
+        cmd.arg("-m");
+        if let Some(output_wav) = output_wav_path {
+            cmd.arg("-w");
+            cmd.arg(output_wav);
+        }
+
+        self.invoke(&mut cmd)
     }
 
     fn invoke(&self, cmd: &mut Command) -> Result<Child, Error> {
@@ -34,21 +43,20 @@ impl Espeak {
             .spawn()
             .map_err(Error::cannot_invoke)
     }
-}
 
-impl Voice for Espeak {
-    type Speech = Speech;
-    type Error = Error;
+    fn speak(&self, sentence: &str, output_wav_path: Option<&Path>) -> Result<Speech, Error> {
+        let mut espeak = self.open_espeak(output_wav_path)?;
+        espeak
+            .stdin
+            .take()
+            .ok_or_else(Error::cannot_open_pipe)
+            .and_then(|p| self.write_ssml_to_pipe(sentence.as_ref(), p))
+            .map(|_| Speech::new(espeak))
+    }
 
-    fn speak<S>(&self, sentence: S) -> Result<Self::Speech, Self::Error>
-    where
-        S: AsRef<str>,
-    {
-        let mut espeak = self.open_espeak()?;
-        let pipe = espeak.stdin.take();
-        let mut pipe = pipe.ok_or_else(Error::cannot_open_pipe)?;
+    fn write_ssml_to_pipe(&self, raw_text: &str, mut pipe: ChildStdin) -> Result<(), Error> {
         write!(pipe, "<speak>").map_err(Error::cannot_write)?;
-        for token in Tokenizer::new(sentence.as_ref()) {
+        for token in Tokenizer::new(raw_text) {
             match token {
                 Token::Normal(text) => write!(pipe, "{}", text).map_err(Error::cannot_write)?,
                 Token::Emphasised(text) => {
@@ -66,8 +74,31 @@ impl Voice for Espeak {
             }
         }
         writeln!(pipe, "</speak>").map_err(Error::cannot_write)?;
-        pipe.flush().map_err(Error::cannot_write)?;
-        Ok(Speech::new(espeak))
+        pipe.flush().map_err(Error::cannot_write)
+    }
+}
+
+impl Voice for Espeak {
+    type Speech = Speech;
+    type Error = Error;
+
+    fn speak<S>(&self, sentence: S) -> Result<Self::Speech, Self::Error>
+    where
+        S: AsRef<str>,
+    {
+        self.speak(sentence.as_ref(), None)
+    }
+
+    fn speak_to_file<S, P>(
+        &self,
+        sentence: S,
+        wav_file_path: P,
+    ) -> Result<Self::Speech, Self::Error>
+    where
+        S: AsRef<str>,
+        P: AsRef<Path>,
+    {
+        self.speak(sentence.as_ref(), Some(wav_file_path.as_ref()))
     }
 }
 

@@ -7,7 +7,8 @@ pub use err::Error;
 use crate::token::{PauseDuration::*, Token, Tokenizer};
 use crate::version::detect_version_with_arg;
 use std::io::Write;
-use std::process::{Child, Command, Stdio};
+use std::path::Path;
+use std::process::{Child, ChildStdin, Command, Stdio};
 
 #[derive(Debug)]
 pub struct Say;
@@ -21,29 +22,32 @@ impl Say {
             .map_err(Error::say_not_installed)
     }
 
-    fn spawn(&self) -> Result<Child, Error> {
-        Command::new("say")
-            .stdin(Stdio::piped())
+    fn spawn(&self, output_file: Option<&Path>) -> Result<Child, Error> {
+        let mut cmd = Command::new("say");
+
+        cmd.stdin(Stdio::piped())
             .stdout(Stdio::null()) // Ignore standard output
-            .stderr(Stdio::null()) // And error too
-            .spawn()
-            .map_err(Error::cannot_invoke)
+            .stderr(Stdio::null()); // And error too
+
+        if let Some(output) = output_file {
+            cmd.arg("-o");
+            cmd.arg(output);
+        }
+
+        cmd.spawn().map_err(Error::cannot_invoke)
     }
-}
 
-impl crate::Voice for Say {
-    type Speech = Speech;
-    type Error = Error;
+    fn speak(&self, sentence: &str, output_file: Option<&Path>) -> Result<Speech, Error> {
+        let mut say = self.spawn(output_file)?;
+        let pipe = say.stdin.take().ok_or_else(Error::cannot_open_pipe)?;
 
-    /// Speaks the given sentence. Emphasized words can be wrapped in underscores.
-    fn speak<S>(&self, sentence: S) -> Result<Self::Speech, Self::Error>
-    where
-        S: AsRef<str>,
-    {
-        let mut say = self.spawn()?;
-        let mut pipe = say.stdin.take().ok_or_else(Error::cannot_open_pipe)?;
+        self.write_say_markup(sentence, pipe)?;
 
-        for token in Tokenizer::new(sentence.as_ref()) {
+        Ok(Speech::new(say))
+    }
+
+    fn write_say_markup(&self, sentence: &str, mut pipe: ChildStdin) -> Result<(), Error> {
+        for token in Tokenizer::new(sentence) {
             match token {
                 Token::Normal(text) => write!(pipe, "{}", text).map_err(Error::cannot_write)?,
                 Token::Emphasised(text) => {
@@ -61,9 +65,32 @@ impl crate::Voice for Say {
             }
         }
         writeln!(pipe, "").map_err(Error::cannot_write)?;
-        pipe.flush().map_err(Error::cannot_write)?;
+        pipe.flush().map_err(Error::cannot_write)
+    }
+}
 
-        Ok(Speech::new(say))
+impl crate::Voice for Say {
+    type Speech = Speech;
+    type Error = Error;
+
+    /// Speaks the given sentence. Emphasized words can be wrapped in underscores.
+    fn speak<S>(&self, sentence: S) -> Result<Self::Speech, Self::Error>
+    where
+        S: AsRef<str>,
+    {
+        self.speak(sentence.as_ref(), None)
+    }
+
+    fn speak_to_file<S, P>(
+        &self,
+        sentence: S,
+        wav_file_path: P,
+    ) -> Result<Self::Speech, Self::Error>
+    where
+        S: AsRef<str>,
+        P: AsRef<Path>,
+    {
+        self.speak(sentence.as_ref(), Some(wav_file_path.as_ref()))
     }
 }
 
