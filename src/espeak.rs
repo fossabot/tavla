@@ -56,7 +56,7 @@ impl Espeak {
 
     fn write_ssml_to_pipe(&self, raw_text: &str, mut pipe: ChildStdin) -> Result<(), Error> {
         write!(pipe, "<speak>").map_err(Error::cannot_write)?;
-        for token in Tokenizer::new(raw_text) {
+        for token in Tokenizer::new(raw_text.trim()) {
             match token {
                 Token::Normal(text) => write!(pipe, "{}", text).map_err(Error::cannot_write)?,
                 Token::Emphasised(text) => {

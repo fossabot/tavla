@@ -1,6 +1,5 @@
 use std::env::temp_dir;
-use std::fs::{remove_file, File, Metadata};
-use std::path::Path;
+use std::fs::{remove_file, File};
 use tavla::{espeak, Speech, Voice};
 
 /// If espeak is unavailable, it should not be obtainable (Err).
