@@ -65,7 +65,7 @@ impl Say {
                 }
             }
         }
-        writeln!(pipe, "").map_err(Error::cannot_write)?;
+        writeln!(pipe).map_err(Error::cannot_write)?;
         pipe.flush().map_err(Error::cannot_write)
     }
 }

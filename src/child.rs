@@ -94,17 +94,17 @@ impl State {
     }
 
     fn update(&mut self) {
-        match self {
-            State::Running(child) => {
-                let status = child
-                    .try_wait()
-                    .expect("Failed to obtain check if child process has exited");
+        if let State::Running(child) = self {
+            // Child was runnign when last checked, check if it exited
+            let status = child
+                .try_wait()
+                .expect("Failed to obtain check if child process has exited");
 
-                if let Some(status) = status {
-                    self.close(status)
-                }
+            if let Some(status) = status {
+                self.close(status)
             }
-            _ => (), // Done state and cancelled are both terminal, no need to update
+        } else {
+            // Done state and cancelled are both terminal, no need to update
         }
     }
 
@@ -115,7 +115,7 @@ impl State {
                 if status.success() {
                     Ok(true)
                 } else {
-                    Err(Error::exit_failure(status.clone()))
+                    Err(Error::exit_failure(*status))
                 }
             }
             State::Cancelled => Ok(true),
@@ -172,7 +172,7 @@ impl State {
         }
 
         // Hit the timeout, exit
-        return Err(Error::cancel_ignored());
+        Err(Error::cancel_ignored())
     }
 }
 

@@ -38,9 +38,11 @@ impl<'a> Iterator for Tokenizer<'a> {
                 // Pauses and emphasis itself stops emphasis part
                 let mut chars = chars.skip_while(|(_, next)| *next != '.' && *next != '_');
                 let (terminator_char_idx, terminator_char) =
-                    chars.next().unwrap_or((rest.len(), '\0'));
-                let after_terminator_char_idx =
-                    chars.next().map(|(idx, _)| idx).unwrap_or(rest.len());
+                    chars.next().unwrap_or_else(|| (rest.len(), '\0'));
+                let after_terminator_char_idx = chars
+                    .next()
+                    .map(|(idx, _)| idx)
+                    .unwrap_or_else(|| rest.len());
 
                 // Resume after closing emphasis, if any
                 let consumed_until = match terminator_char {
@@ -58,7 +60,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                     .skip_while(|(_, next)| *next == '.')
                     .next()
                     .map(|(idx, _)| idx)
-                    .unwrap_or(rest.len());
+                    .unwrap_or_else(|| rest.len());
 
                 let duration = match pause_end - pause_start {
                     1 => PauseDuration::Sentence,
@@ -73,7 +75,7 @@ impl<'a> Iterator for Tokenizer<'a> {
                     .skip_while(|(_, next)| *next != '.' && *next != '_')
                     .next()
                     .map(|(idx, _)| idx)
-                    .unwrap_or(rest.len());
+                    .unwrap_or_else(|| rest.len());
 
                 (Token::Normal(&rest[normal_start..normal_end]), normal_end)
             }

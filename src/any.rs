@@ -91,15 +91,15 @@ impl crate::Voice for AnyVoice {
             #[cfg(windows)]
             AnyVoice::CScript(voice) => voice
                 .speak(sentence)
-                .map(|s| AnySpeech::CScript(s))
+                .map(AnySpeech::CScript)
                 .map_err(From::from),
             AnyVoice::Espeak(voice) => voice
                 .speak(sentence)
-                .map(|s| AnySpeech::Espeak(s))
+                .map(AnySpeech::Espeak)
                 .map_err(From::from),
             AnyVoice::Say(voice) => voice
                 .speak(sentence)
-                .map(|s| AnySpeech::Say(s))
+                .map(AnySpeech::Say)
                 .map_err(From::from),
         }
     }
@@ -117,15 +117,15 @@ impl crate::Voice for AnyVoice {
             #[cfg(windows)]
             AnyVoice::CScript(voice) => voice
                 .speak_to_file(sentence, wav_file_path)
-                .map(|s| AnySpeech::CScript(s))
+                .map(AnySpeech::CScript)
                 .map_err(From::from),
             AnyVoice::Espeak(voice) => voice
                 .speak_to_file(sentence, wav_file_path)
-                .map(|s| AnySpeech::Espeak(s))
+                .map(AnySpeech::Espeak)
                 .map_err(From::from),
             AnyVoice::Say(voice) => voice
                 .speak_to_file(sentence, wav_file_path)
-                .map(|s| AnySpeech::Say(s))
+                .map(AnySpeech::Say)
                 .map_err(From::from),
         }
     }
