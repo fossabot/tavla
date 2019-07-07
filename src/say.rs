@@ -30,6 +30,7 @@ impl Say {
             .stderr(Stdio::null()); // And error too
 
         if let Some(output) = output_file {
+            cmd.arg("--data-format=LEF32@22050");
             cmd.arg("-o");
             cmd.arg(output);
         }
@@ -141,5 +142,40 @@ mod err {
         pub fn cannot_open_pipe() -> Self {
             Error::CannotOpenPipe(Backtrace::new())
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::fs::File;
+    use crate::voice::Voice;
+    use crate::speech::Speech;
+    use tempfile::tempdir;
+
+    #[test]
+    fn say_to_file() {
+        // given
+        let say = Say::new().unwrap();
+        let tempdir = tempdir().expect("could not make temporary directory for test");
+        let target_path = tempdir.path().join("testsay.wav");
+
+        // when
+        say.speak_to_file("This is a test sentence to speak.", &target_path)
+            .expect("Failed to start speaking to file")
+            .await_done()
+            .expect("Failed to wait until speaking to file is done");
+
+        let generated_file_meta = File::open(&target_path)
+            .expect("could not open generated file")
+            .metadata()
+            .expect("could not obtain metadata of generated file");
+
+        // then
+        assert!(target_path.exists(), "Expecting speakint to path to produce a file.");
+        assert!(
+            generated_file_meta.len() > 1024,
+            "Expected test sentence to add up to more than a KiB worth of WAV."
+        );
     }
 }
