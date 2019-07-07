@@ -148,9 +148,9 @@ mod err {
 #[cfg(test)]
 mod test {
     use super::*;
-    use std::fs::File;
-    use crate::voice::Voice;
     use crate::speech::Speech;
+    use crate::voice::Voice;
+    use std::fs::File;
     use tempfile::tempdir;
 
     #[test]
@@ -172,7 +172,10 @@ mod test {
             .expect("could not obtain metadata of generated file");
 
         // then
-        assert!(target_path.exists(), "Expecting speakint to path to produce a file.");
+        assert!(
+            target_path.exists(),
+            "Expecting speaking to path to produce a file."
+        );
         assert!(
             generated_file_meta.len() > 1024,
             "Expected test sentence to add up to more than a KiB worth of WAV."
