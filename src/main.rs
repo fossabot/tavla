@@ -5,11 +5,12 @@ extern crate failure;
 
 mod any;
 mod child;
-#[cfg(windows)]
+#[cfg(target_os = "windows")]
 mod cscript;
 mod espeak;
 mod factory;
 mod prelude;
+#[cfg(target_os = "macos")]
 mod say;
 mod speech;
 mod token;
