@@ -44,3 +44,8 @@ something more sophisticated like
 or linking against espeak directly with
 [espeak-sys](https://crates.io/crates/espeak-sys).
 
+## License
+_tavla_ is licensed under the GPLv3, since that is what the
+underlying espeak uses. This means that if you distribute
+proprietary software with tavla, you have to release it under
+a GPL-compatible license. See [LICENSE](LICENSE) for details.
