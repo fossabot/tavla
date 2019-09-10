@@ -13,7 +13,7 @@ use std::ffi::OsStr;
 use std::io::Write;
 use std::os::windows::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::{Child, ChildStdin, Command, Stdio};
 
 #[derive(Debug)]
 pub struct CScriptVoice {
@@ -42,6 +42,28 @@ impl CScriptVoice {
             .spawn()
             .map_err(Error::cannot_invoke)
     }
+
+    fn invoke_csript<S : AsRef<str>>(&self, sentence: S, to_file: Option<&OsStr>) -> Result<Speech, Error>
+    {
+        let xml = format_sapi_xml(sentence.as_ref());
+
+        let mut cscript = self.spawn()?;
+        let mut pipe = cscript.stdin.take().ok_or_else(Error::cannot_open_pipe)?;
+
+        if let Some(file) = to_file {
+            const WRITE_FILE_UUID : &str = "53377b5f-60a2-4c05-a4eb-55de35452a2b\r\n";
+            const NEWLINE : &str = "\r\n";
+            write_wide(&mut pipe, OsStr::new(WRITE_FILE_UUID))?;
+            write_wide(&mut pipe, file)?;
+            write_wide(&mut pipe, OsStr::new(NEWLINE))?;
+        }
+
+        write_wide(&mut pipe, OsStr::new(&xml))?;
+
+        pipe.flush().map_err(Error::cannot_write)?;
+
+        Ok(Speech::new(cscript))
+    }
 }
 
 impl crate::Voice for CScriptVoice {
@@ -53,21 +75,7 @@ impl crate::Voice for CScriptVoice {
     where
         S: AsRef<str>,
     {
-        let xml = format_sapi_xml(sentence.as_ref());
-
-        let mut cscript = self.spawn()?;
-        let mut pipe = cscript.stdin.take().ok_or_else(Error::cannot_open_pipe)?;
-
-        for code_point_16 in OsStr::new(&xml).encode_wide() {
-            // NOTE whether this works or not depends on endianness
-            let lower_byte = code_point_16 as u8;
-            let upper_byte = (code_point_16 >> 8) as u8;
-            pipe.write(&[lower_byte, upper_byte])
-                .map_err(Error::cannot_write)?;
-        }
-        pipe.flush().map_err(Error::cannot_write)?;
-
-        Ok(Speech::new(cscript))
+        self.invoke_csript(sentence.as_ref(), None)
     }
 
     fn speak_to_file<S, P>(
@@ -79,7 +87,7 @@ impl crate::Voice for CScriptVoice {
         S: AsRef<str>,
         P: AsRef<Path>,
     {
-        unimplemented!("speaking to file is not yet available on windows")
+        self.invoke_csript(sentence.as_ref(), Some(wav_file_path.as_ref().as_os_str()))
     }
 }
 
@@ -111,6 +119,21 @@ fn format_sapi_xml(sentence: &str) -> String {
     xml
 }
 
+fn write_wide(pipe: &mut ChildStdin, data: &OsStr) -> Result<(), Error> {
+    for code_point_16 in data.encode_wide() {
+        pipe.write(&char_bytes(code_point_16))
+            .map_err(Error::cannot_write)?;
+    }
+    Ok(())
+}
+
+fn char_bytes(code_point_16: u16) -> [u8; 2] {
+    // NOTE whether this works or not depends on endianness
+    let lower_byte = code_point_16 as u8;
+    let upper_byte = (code_point_16 >> 8) as u8;
+    [lower_byte, upper_byte]
+}
+
 mod script {
     use super::Error;
     use std::env::temp_dir;
@@ -123,7 +146,7 @@ mod script {
     // Make sure different tavla versions do not interfere with
     // each other by prepending the crate version to the generated
     // file name.
-    const VISUAL_BASIC_SAY_SCRIPT_FILENAME_UNQUALIFIED: &str = "say_lines_for_tavla.vbs";
+    const VISUAL_BASIC_SAY_SCRIPT_FILENAME_UNQUALIFIED: &str = "say_lines_for_tavla_.vbs";
 
     /// If the temporary file directory already contains a file with a name
     /// `VISUAL_BASIC_SAY_SCRIPT_FILENAME`, returns a path to it.
@@ -213,5 +236,43 @@ mod err {
         pub fn cannot_open_pipe() -> Self {
             Error::CannotOpenPipe(Backtrace::new())
         }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::speech::Speech;
+    use crate::voice::Voice;
+    use std::fs::File;
+    use tempfile::tempdir;
+
+    #[test]
+    fn cscript_to_file() {
+        // given
+        let say = CScriptVoice::new().unwrap();
+        let tempdir = tempdir().expect("could not make temporary directory for test");
+        let target_path = tempdir.path().join("testsay.wav");
+
+        // when
+        say.speak_to_file("This is a test sentence to speak.", &target_path)
+            .expect("Failed to start speaking to file")
+            .await_done()
+            .expect("Failed to wait until speaking to file is done");
+
+        let generated_file_meta = File::open(&target_path)
+            .expect("could not open generated file")
+            .metadata()
+            .expect("could not obtain metadata of generated file");
+
+        // then
+        assert!(
+            target_path.exists(),
+            "Expecting speaking to path to produce a file."
+        );
+        assert!(
+            generated_file_meta.len() > 1024,
+            "Expected test sentence to add up to more than a KiB worth of WAV."
+        );
     }
 }
