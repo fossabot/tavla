@@ -1,8 +1,8 @@
 extern crate tavla;
-#[cfg(target_os = "windows")]
+#[cfg(target_os = "macos")]
 use tavla::{say, Speech, Voice};
 
-#[cfg(target_os = "windows")]
+#[cfg(target_os = "macos")]
 #[test]
 fn speak_say() {
     match say() {
