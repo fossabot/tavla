@@ -119,7 +119,7 @@ mod script {
     use std::path::PathBuf;
 
     const VISUAL_BASIC_SAY_SCRIPT_CONTENTS: &[u8] =
-        include_str!("../resources/say_lines.vbs").as_bytes();
+        include_bytes!("../resources/say_lines.vbs");
     // Make sure different tavla versions do not interfere with
     // each other by prepending the crate version to the generated
     // file name.

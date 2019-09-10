@@ -1,5 +1,3 @@
-#![feature(const_str_as_bytes)]
-
 extern crate clap;
 extern crate failure;
 

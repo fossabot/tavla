@@ -31,7 +31,6 @@
 //! # }
 //! ```
 
-#![feature(const_str_as_bytes)]
 extern crate failure;
 #[cfg(test)]
 extern crate tempfile;
