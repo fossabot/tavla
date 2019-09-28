@@ -58,9 +58,9 @@ impl Espeak {
         write!(pipe, "<speak>").map_err(Error::cannot_write)?;
         for token in Tokenizer::new(raw_text.trim()) {
             match token {
-                Token::Normal(text) => write!(pipe, "{}", text).map_err(Error::cannot_write)?,
+                Token::Normal(text) => write!(pipe, " {}", text).map_err(Error::cannot_write)?,
                 Token::Emphasised(text) => {
-                    write!(pipe, "<emphasis>{}</emphasis>", text).map_err(Error::cannot_write)?
+                    write!(pipe, "<emphasis> {}</emphasis>", text).map_err(Error::cannot_write)?
                 }
                 Token::Pause(Sentence) => {
                     write!(pipe, "<break strength=\"medium\"/>").map_err(Error::cannot_write)?

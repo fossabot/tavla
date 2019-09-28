@@ -50,9 +50,9 @@ impl Say {
     fn write_say_markup(&self, sentence: &str, mut pipe: ChildStdin) -> Result<(), Error> {
         for token in Tokenizer::new(sentence) {
             match token {
-                Token::Normal(text) => write!(pipe, "{}", text).map_err(Error::cannot_write)?,
+                Token::Normal(text) => write!(pipe, " {}", text).map_err(Error::cannot_write)?,
                 Token::Emphasised(text) => {
-                    write!(pipe, "[[emph +]]{}[[emph -]]", text).map_err(Error::cannot_write)?
+                    write!(pipe, "[[emph +]] {}[[emph -]]", text).map_err(Error::cannot_write)?
                 }
                 Token::Pause(Sentence) => {
                     write!(pipe, "[[slnc 350]]").map_err(Error::cannot_write)?

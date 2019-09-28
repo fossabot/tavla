@@ -43,16 +43,19 @@ impl CScriptVoice {
             .map_err(Error::cannot_invoke)
     }
 
-    fn invoke_csript<S : AsRef<str>>(&self, sentence: S, to_file: Option<&OsStr>) -> Result<Speech, Error>
-    {
+    fn invoke_csript<S: AsRef<str>>(
+        &self,
+        sentence: S,
+        to_file: Option<&OsStr>,
+    ) -> Result<Speech, Error> {
         let xml = format_sapi_xml(sentence.as_ref());
 
         let mut cscript = self.spawn()?;
         let mut pipe = cscript.stdin.take().ok_or_else(Error::cannot_open_pipe)?;
 
         if let Some(file) = to_file {
-            const WRITE_FILE_UUID : &str = "53377b5f-60a2-4c05-a4eb-55de35452a2b\r\n";
-            const NEWLINE : &str = "\r\n";
+            const WRITE_FILE_UUID: &str = "53377b5f-60a2-4c05-a4eb-55de35452a2b\r\n";
+            const NEWLINE: &str = "\r\n";
             write_wide(&mut pipe, OsStr::new(WRITE_FILE_UUID))?;
             write_wide(&mut pipe, file)?;
             write_wide(&mut pipe, OsStr::new(NEWLINE))?;
@@ -97,7 +100,10 @@ fn format_sapi_xml(sentence: &str) -> String {
     xml.push_str("<sapi>");
     for token in Tokenizer::new(sentence.as_ref()) {
         match token {
-            Token::Normal(text) => xml.push_str(text),
+            Token::Normal(text) => {
+                xml.push_str(" ");
+                xml.push_str(text)
+            }
             Token::Emphasised(text) => {
                 xml.push_str("<emph>");
                 xml.push_str(text);
@@ -141,8 +147,7 @@ mod script {
     use std::io::Write;
     use std::path::PathBuf;
 
-    const VISUAL_BASIC_SAY_SCRIPT_CONTENTS: &[u8] =
-        include_bytes!("../resources/say_lines.vbs");
+    const VISUAL_BASIC_SAY_SCRIPT_CONTENTS: &[u8] = include_bytes!("../resources/say_lines.vbs");
     // Make sure different tavla versions do not interfere with
     // each other by prepending the crate version to the generated
     // file name.
